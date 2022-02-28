@@ -8,14 +8,19 @@ from rest_framework.pagination import PageNumberPagination, LimitOffsetPaginatio
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 
 from .permission import OwnerOrReadOnly
-from .serializers import PostSerializer, CommentSerializer, FollowSerializer, GroupSerializer
-
+from .serializers import (
+    PostSerializer,
+    CommentSerializer,
+    FollowSerializer,
+    GroupSerializer,
+)
 
 User = get_user_model()
 
 
 class PostViewSet(viewsets.ModelViewSet):
     """ViewSet для Post модели."""
+
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     permission_classes = [OwnerOrReadOnly]
@@ -50,6 +55,7 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
 
 class CommentViewSet(viewsets.ModelViewSet):
     """ViewSet для модели Comment."""
+
     serializer_class = CommentSerializer
     permission_classes = (IsAuthenticatedOrReadOnly,)
     pagination_class = PageNumberPagination
@@ -79,6 +85,7 @@ class CommentViewSet(viewsets.ModelViewSet):
 
 class FollowViewSet(viewsets.ModelViewSet):
     """ViewSet для модели Follow."""
+
     queryset = Follow.objects.all()
     serializer_class = FollowSerializer
     permission_classes = (IsAuthenticated,)
