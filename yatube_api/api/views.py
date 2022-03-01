@@ -8,10 +8,8 @@ from rest_framework.pagination import (
     PageNumberPagination,
     LimitOffsetPagination
 )
-from rest_framework.permissions import (
-    IsAuthenticatedOrReadOnly,
-    IsAuthenticated
-)
+from rest_framework import permissions
+from rest_framework import mixins
 
 from .permission import OwnerOrReadOnly
 from .serializers import (
@@ -24,30 +22,25 @@ from .serializers import (
 User = get_user_model()
 
 
+class MyMixinViewSet(mixins.ListModelMixin,
+                     mixins.CreateModelMixin,
+                     viewsets.GenericViewSet):
+    """Mixin для подписок."""
+    pass
+
+
 class PostViewSet(viewsets.ModelViewSet):
     """ViewSet для Post модели."""
 
     queryset = Post.objects.all()
     serializer_class = PostSerializer
-    permission_classes = [OwnerOrReadOnly]
+    permission_classes = [
+        OwnerOrReadOnly, permissions.IsAuthenticatedOrReadOnly
+    ]
     pagination_class = LimitOffsetPagination
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
-
-    def perform_update(self, serializer):
-        if serializer.instance.author != self.request.user:
-            raise PermissionDenied(
-                "На нашем API запрещено любое изменение чужих постов."
-            )
-        super(PostViewSet, self).perform_update(serializer)
-
-    def perform_destroy(self, serializer):
-        if serializer.author != self.request.user:
-            raise PermissionDenied(
-                "На нашем API запрещено любое удаление чужих постов."
-            )
-        super(PostViewSet, self).perform_destroy(serializer)
 
 
 class GroupViewSet(viewsets.ReadOnlyModelViewSet):
@@ -56,14 +49,16 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     # принимает на вход только GET-запрос
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
 
 class CommentViewSet(viewsets.ModelViewSet):
     """ViewSet для модели Comment."""
 
     serializer_class = CommentSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = [
+        permissions.IsAuthenticatedOrReadOnly, OwnerOrReadOnly
+    ]
     pagination_class = PageNumberPagination
 
     def get_queryset(self):
@@ -72,34 +67,21 @@ class CommentViewSet(viewsets.ModelViewSet):
         return new_queryset
 
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
-
-    def perform_update(self, serializer):
-        if serializer.instance.author != self.request.user:
-            raise PermissionDenied(
-                "На нашем API запрещено любое изменение чужих комментариев."
-            )
-        super(CommentViewSet, self).perform_update(serializer)
-
-    def perform_destroy(self, serializer):
-        if serializer.author != self.request.user:
-            raise PermissionDenied(
-                "На нашем API запрещено любое удаление чужих комментариев."
-            )
-        super(CommentViewSet, self).perform_destroy(serializer)
+        post = get_object_or_404(Post, id=self.kwargs.get("post_id"))
+        serializer.save(author=self.request.user, post=post)
 
 
-class FollowViewSet(viewsets.ModelViewSet):
+class FollowViewSet(MyMixinViewSet):
     """ViewSet для модели Follow."""
 
     queryset = Follow.objects.all()
     serializer_class = FollowSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = [permissions.IsAuthenticated]
     filter_backends = (filters.SearchFilter,)
     search_fields = ("user__username", "following__username")
 
     def get_queryset(self):
-        return Follow.objects.filter(user=self.request.user)
+        return Follow.objects.all().filter(user=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
